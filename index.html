@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>السلسلة الأضعف — محاضرة الأمن السيبراني الأولى</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0a0f1c;
+    --bg-alt: #0d1428;
+    --surface: #131f38;
+    --surface-2: #1b2a4a;
+    --border: rgba(255,255,255,0.09);
+    --text: #eef1f8;
+    --text-muted: #8d96b3;
+    --amber: #e8a33d;
+    --amber-dim: rgba(232,163,61,0.15);
+    --teal: #45d9c4;
+    --teal-dim: rgba(69,217,196,0.15);
+    --red: #e5586b;
+    --red-dim: rgba(229,88,107,0.15);
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+
+  html{scroll-behavior:smooth;}
+
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Sans Arabic', sans-serif;
+    overflow-x:hidden;
+  }
+
+  .deck{
+    height:100vh;
+    overflow-y:scroll;
+    scroll-snap-type:y mandatory;
+  }
+
+  .slide{
+    min-height:100vh;
+    scroll-snap-align:start;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    padding:6vh 8vw;
+    position:relative;
+    border-bottom:1px solid var(--border);
+  }
+
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.72rem;
+    letter-spacing:0.18em;
+    color:var(--amber);
+    text-transform:uppercase;
+    margin-bottom:1.4rem;
+    display:flex;
+    align-items:center;
+    gap:0.6rem;
+    opacity:0;
+    animation:fadeUp 0.7s ease forwards;
+  }
+  .eyebrow::before{
+    content:"";
+    width:22px;height:1px;
+    background:var(--amber);
+    display:inline-block;
+  }
+
+  h1,h2,h3{
+    font-family:'El Messiri', sans-serif;
+    font-weight:700;
+    line-height:1.25;
+  }
+
+  .display{
+    font-size:clamp(2.1rem, 5vw, 4.2rem);
+    max-width:14ch;
+    text-align:center;
+    opacity:0;
+    animation:fadeUp 0.8s 0.1s ease forwards;
+  }
+
+  .display .accent{color:var(--amber);}
+  .display .accent-teal{color:var(--teal);}
+  .display .accent-red{color:var(--red);}
+
+  .sub{
+    margin-top:1.6rem;
+    font-size:clamp(1rem, 1.6vw, 1.25rem);
+    color:var(--text-muted);
+    max-width:52ch;
+    text-align:center;
+    line-height:1.9;
+    opacity:0;
+    animation:fadeUp 0.8s 0.25s ease forwards;
+  }
+
+  .slide-label{
+    position:absolute;
+    top:6vh;
+    right:8vw;
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.75rem;
+    color:var(--text-muted);
+    letter-spacing:0.1em;
+  }
+  .slide-label b{color:var(--amber);}
+
+  @keyframes fadeUp{
+    from{opacity:0; transform:translateY(18px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+
+  /* ---------- Nav rail: "the chain" ---------- */
+  .rail{
+    position:fixed;
+    left:28px;
+    top:50%;
+    transform:translateY(-50%);
+    z-index:50;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:0;
+  }
+  .rail-node-wrap{display:flex; flex-direction:column; align-items:center;}
+  .rail-link{
+    width:1px; height:20px;
+    background:var(--border);
+  }
+  .rail-link.done{background:var(--teal);}
+  .rail-node{
+    width:11px;height:11px;
+    border-radius:50%;
+    border:1.5px solid var(--text-muted);
+    background:transparent;
+    cursor:pointer;
+    transition:all 0.35s ease;
+    padding:0;
+  }
+  .rail-node.active{
+    border-color:var(--amber);
+    background:var(--amber);
+    box-shadow:0 0 0 5px var(--amber-dim);
+    transform:scale(1.15);
+  }
+  .rail-node.done{
+    border-color:var(--teal);
+    background:var(--teal);
+  }
+  @media (max-width:880px){ .rail{display:none;} }
+
+  .counter{
+    position:fixed;
+    bottom:24px;
+    left:50%;
+    transform:translateX(-50%);
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.75rem;
+    color:var(--text-muted);
+    letter-spacing:0.15em;
+    z-index:50;
+    background:rgba(10,15,28,0.6);
+    padding:6px 14px;
+    border-radius:20px;
+    border:1px solid var(--border);
+    backdrop-filter:blur(6px);
+  }
+  .counter b{color:var(--amber);}
+
+  /* ---------- Chips / grids ---------- */
+  .chip-grid{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:0.7rem;
+    max-width:900px;
+    margin-top:2.5rem;
+  }
+  .chip{
+    background:var(--surface);
+    border:1px solid var(--border);
+    padding:0.7rem 1.3rem;
+    border-radius:999px;
+    font-size:0.92rem;
+    color:var(--text);
+    opacity:0;
+  }
+  .slide.in-view .chip{animation:popIn 0.5s ease forwards;}
+  .chip:nth-child(1){animation-delay:0.1s;}
+  .chip:nth-child(2){animation-delay:0.18s;}
+  .chip:nth-child(3){animation-delay:0.26s;}
+  .chip:nth-child(4){animation-delay:0.34s;}
+  .chip:nth-child(5){animation-delay:0.42s;}
+  .chip:nth-child(6){animation-delay:0.5s;}
+  .chip:nth-child(7){animation-delay:0.58s;}
+  .chip:nth-child(8){animation-delay:0.66s;}
+  @keyframes popIn{
+    from{opacity:0; transform:scale(0.9) translateY(8px);}
+    to{opacity:1; transform:scale(1) translateY(0);}
+  }
+
+  /* ---------- Card grid (hacker types / domains) ---------- */
+  .card-grid{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(200px,260px));
+    gap:1.1rem;
+    margin-top:2.6rem;
+  }
+  @media (max-width:760px){ .card-grid{grid-template-columns:1fr; width:100%; max-width:340px;} }
+
+  .card{
+    background:linear-gradient(160deg, var(--surface), var(--bg-alt));
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:1.6rem 1.4rem;
+    text-align:center;
+    transition:transform 0.3s ease, border-color 0.3s ease;
+  }
+  .card:hover{transform:translateY(-6px); border-color:var(--amber);}
+  .card .dot{
+    width:10px;height:10px;border-radius:50%;
+    margin:0 auto 0.9rem;
+  }
+  .card h4{font-family:'El Messiri'; font-size:1.15rem; margin-bottom:0.5rem;}
+  .card p{font-size:0.86rem; color:var(--text-muted); line-height:1.7;}
+
+  /* ---------- Attack chain diagram ---------- */
+  .chain-wrap{margin-top:3rem; width:100%; max-width:760px;}
+  .chain-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    position:relative;
+  }
+  .chain-row::before{
+    content:"";
+    position:absolute;
+    top:19px; right:5%; left:5%;
+    height:2px;
+    background:linear-gradient(90deg, var(--red), var(--amber), var(--teal), var(--amber), var(--red));
+    opacity:0.25;
+  }
+  .chain-node{
+    display:flex; flex-direction:column; align-items:center;
+    gap:0.7rem;
+    position:relative; z-index:2;
+    flex:1;
+  }
+  .chain-dot{
+    width:40px;height:40px;border-radius:50%;
+    background:var(--surface);
+    border:2px solid var(--text-muted);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono'; font-size:0.75rem;
+    opacity:0.5;
+  }
+  .slide.in-view .chain-dot{animation:lightUp 0.5s ease forwards;}
+  .chain-node:nth-child(1) .chain-dot{animation-delay:0.2s;}
+  .chain-node:nth-child(2) .chain-dot{animation-delay:0.6s;}
+  .chain-node:nth-child(3) .chain-dot{animation-delay:1.0s;}
+  .chain-node:nth-child(4) .chain-dot{animation-delay:1.4s;}
+  .chain-node:nth-child(5) .chain-dot{animation-delay:1.8s;}
+  @keyframes lightUp{
+    0%{opacity:0.3; border-color:var(--text-muted); transform:scale(0.85);}
+    60%{transform:scale(1.15);}
+    100%{opacity:1; border-color:var(--red); box-shadow:0 0 16px rgba(229,88,107,0.5); transform:scale(1);}
+  }
+  .chain-node span{font-size:0.82rem; color:var(--text-muted);}
+
+  .company-box{
+    margin-top:3rem;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:1.6rem 2rem;
+    display:flex;
+    flex-wrap:wrap;
+    gap:1.6rem;
+    justify-content:center;
+    max-width:640px;
+  }
+  .stat{text-align:center;}
+  .stat b{display:block; font-family:'El Messiri'; font-size:1.6rem; color:var(--amber);}
+  .stat span{font-size:0.78rem; color:var(--text-muted);}
+
+  /* ---------- Phishing email card ---------- */
+  .email-card{
+    margin-top:2.6rem;
+    width:100%; max-width:480px;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    overflow:hidden;
+    text-align:right;
+  }
+  .email-head{
+    padding:0.9rem 1.2rem;
+    border-bottom:1px solid var(--border);
+    font-family:'JetBrains Mono'; font-size:0.75rem;
+    color:var(--text-muted);
+  }
+  .email-body{padding:1.2rem; font-size:0.95rem; line-height:1.9;}
+  .email-btn{
+    display:inline-block;
+    margin-top:0.8rem;
+    background:var(--red);
+    color:#fff;
+    padding:0.55rem 1.3rem;
+    border-radius:8px;
+    font-size:0.85rem;
+    font-weight:600;
+  }
+  .decision-row{
+    margin-top:1.8rem;
+    display:flex;
+    gap:0.9rem;
+  }
+  .decision-btn{
+    font-family:'IBM Plex Sans Arabic';
+    font-size:0.95rem;
+    padding:0.65rem 1.6rem;
+    border-radius:999px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--text);
+    cursor:pointer;
+    transition:all 0.25s ease;
+  }
+  .decision-btn:hover{border-color:var(--amber); color:var(--amber);}
+  .reveal-box{
+    margin-top:1.6rem;
+    max-width:480px;
+    background:var(--surface-2);
+    border-right:3px solid var(--amber);
+    padding:1.1rem 1.3rem;
+    border-radius:8px;
+    font-size:0.92rem;
+    line-height:1.85;
+    color:var(--text-muted);
+    display:none;
+  }
+  .reveal-box.show{display:block; animation:fadeUp 0.5s ease;}
+
+  /* ---------- Escalation bars ---------- */
+  .escalation{margin-top:2.6rem; width:100%; max-width:560px; display:flex; flex-direction:column; gap:0.65rem;}
+  .esc-row{display:flex; align-items:center; gap:1rem;}
+  .esc-label{width:180px; font-size:0.86rem; color:var(--text-muted); text-align:left; flex-shrink:0;}
+  .esc-bar{flex:1; height:12px; border-radius:6px; background:var(--surface); overflow:hidden;}
+  .esc-fill{height:100%; border-radius:6px; width:0%; transition:width 1s ease;}
+  .slide.in-view .esc-fill{width:var(--w);}
+  .esc-num{font-family:'JetBrains Mono'; font-size:0.78rem; color:var(--text-muted); width:20px;}
+
+  /* ---------- CIA triangle ---------- */
+  .cia-wrap{
+    margin-top:2.6rem;
+    display:flex;
+    gap:3rem;
+    align-items:center;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .cia-svg circle{cursor:pointer; transition:all 0.3s ease;}
+  .cia-svg circle.active{filter:drop-shadow(0 0 10px currentColor);}
+  .cia-svg text{font-family:'IBM Plex Sans Arabic'; font-size:13px; fill:var(--text); pointer-events:none;}
+  .cia-panels{max-width:340px; min-height:110px;}
+  .cia-panel{display:none; font-size:0.92rem; line-height:1.85; color:var(--text-muted);}
+  .cia-panel.show{display:block; animation:fadeUp 0.4s ease;}
+  .cia-panel b{color:var(--text); font-family:'El Messiri'; display:block; margin-bottom:0.4rem; font-size:1.1rem;}
+
+  /* ---------- Checklist ---------- */
+  .checklist{margin-top:2.4rem; display:flex; flex-wrap:wrap; gap:0.6rem; max-width:640px; justify-content:center;}
+  .check-item{
+    display:flex; align-items:center; gap:0.5rem;
+    background:var(--surface);
+    border:1px solid var(--border);
+    padding:0.55rem 1rem;
+    border-radius:999px;
+    font-size:0.86rem;
+    cursor:pointer;
+    user-select:none;
+    transition:all 0.25s ease;
+  }
+  .check-item .box{
+    width:15px;height:15px;border-radius:4px;
+    border:1.5px solid var(--text-muted);
+    display:flex;align-items:center;justify-content:center;
+    font-size:10px;
+  }
+  .check-item.on{border-color:var(--teal); color:var(--teal);}
+  .check-item.on .box{background:var(--teal); border-color:var(--teal); color:var(--bg);}
+  .check-counter{margin-top:1.2rem; font-family:'JetBrains Mono'; font-size:0.8rem; color:var(--text-muted);}
+  .check-counter b{color:var(--teal);}
+
+  /* ---------- table ---------- */
+  .agenda{
+    margin-top:2.6rem;
+    width:100%; max-width:600px;
+    border-collapse:collapse;
+    font-size:0.86rem;
+  }
+  .agenda td{
+    padding:0.65rem 0.9rem;
+    border-bottom:1px solid var(--border);
+  }
+  .agenda td:first-child{
+    font-family:'JetBrains Mono';
+    color:var(--amber);
+    white-space:nowrap;
+    width:110px;
+  }
+
+  .mindset-compare{
+    margin-top:2.8rem;
+    display:flex;
+    gap:1.5rem;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .mindset-col{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:1.6rem 1.7rem;
+    max-width:320px;
+  }
+  .mindset-col.pro{border-color:var(--teal);}
+  .mindset-col .tag{
+    font-family:'JetBrains Mono'; font-size:0.68rem;
+    letter-spacing:0.1em; color:var(--text-muted); text-transform:uppercase;
+  }
+  .mindset-col.pro .tag{color:var(--teal);}
+  .mindset-col p{margin-top:0.8rem; font-size:1.02rem; line-height:1.8;}
+
+  .footer-quote{
+    font-family:'El Messiri';
+    font-size:clamp(1.3rem,2.6vw,1.9rem);
+    max-width:16ch;
+    text-align:center;
+    line-height:1.6;
+    color:var(--teal);
+  }
+
+  ::selection{background:var(--amber); color:#0a0f1c;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="rail" id="rail"></div>
+<div class="counter" id="counter"><b>01</b> / 16</div>
+
+<main class="deck" id="deck">
+
+  <!-- 01 HERO -->
+  <section class="slide" data-title="السؤال">
+    <div class="eyebrow">محاضرة الأمن السيبراني · الجلسة الأولى</div>
+    <h1 class="display">لو حد عرف باسورد <span class="accent">Gmail</span> بتاعك دلوقتي...<br>إيه أسوأ حاجة ممكن تحصل؟</h1>
+    <p class="sub">فكّر قبل ما تكمل. مش سؤال بلاغي — إجابتك هي بداية كل حاجة هنتكلم عنها النهاردة.</p>
+    <div class="chip-grid">
+      <div class="chip">مربوط بفيسبوك؟</div>
+      <div class="chip">مربوط بالموبايل؟</div>
+      <div class="chip">مربوط بحساب بنكي؟</div>
+    </div>
+  </section>
+
+  <!-- 02 -->
+  <section class="slide" data-title="حياتك اليومية">
+    <div class="eyebrow">قبل ما تتعلم Cyber Security</div>
+    <h2 class="display" style="font-size:clamp(1.7rem,3.6vw,2.7rem);">أنت بالفعل بتتعامل معاه <span class="accent-teal">كل يوم</span></h2>
+    <div class="chip-grid">
+      <div class="chip">إنشاء Password</div>
+      <div class="chip">استقبال OTP</div>
+      <div class="chip">موقع HTTPS</div>
+      <div class="chip">بصمة الإصبع</div>
+      <div class="chip">تأكيد عملية بنكية</div>
+      <div class="chip">تنبيه دخول من جهاز جديد</div>
+      <div class="chip">Gmail بيمنع رسالة مشبوهة</div>
+      <div class="chip">Windows Defender بيمنع ملف</div>
+    </div>
+    <p class="sub" style="margin-top:2.2rem;">مش حاجة بتحصل في شركات التكنولوجيا بس. أنت بتستخدمها حتى لو مش واخد بالك.</p>
+  </section>
+
+  <!-- 03 attack chain -->
+  <section class="slide" data-title="السيناريو">
+    <div class="eyebrow">تخيّل شركة</div>
+    <h2 class="display" style="font-size:clamp(1.6rem,3.2vw,2.4rem);">موظف واحد ضغط على <span class="accent-red">Link غلط</span></h2>
+    <div class="company-box">
+      <div class="stat"><b>500</b><span>موظف</span></div>
+      <div class="stat"><b>100K</b><span>بيانات عميل</span></div>
+      <div class="stat"><b>1</b><span>ضغطة خاطئة</span></div>
+    </div>
+    <div class="chain-wrap">
+      <div class="chain-row">
+        <div class="chain-node"><div class="chain-dot">✉</div><span>Email</span></div>
+        <div class="chain-node"><div class="chain-dot">🔗</div><span>Link</span></div>
+        <div class="chain-node"><div class="chain-dot">⌨</div><span>Login</span></div>
+        <div class="chain-node"><div class="chain-dot">👤</div><span>Account</span></div>
+        <div class="chain-node"><div class="chain-dot">🏢</div><span>Company</span></div>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:2.6rem;">هل المشكلة كانت في الكمبيوتر؟ <b style="color:var(--text)">لا. المشكلة كانت في الإنسان.</b></p>
+  </section>
+
+  <!-- 04 phishing -->
+  <section class="slide" data-title="Social Engineering">
+    <div class="eyebrow">أنت الموظف. أنا المهاجم.</div>
+    <h2 class="display" style="font-size:clamp(1.5rem,3vw,2.2rem);">هيوصلك الإيميل ده. هتضغط؟</h2>
+    <div class="email-card">
+      <div class="email-head">from: security@accounts-verify.com</div>
+      <div class="email-body">
+        Your account will be suspended today.<br>Click here to verify your account.
+        <br><span class="email-btn">Verify Now</span>
+      </div>
+    </div>
+    <div class="decision-row">
+      <button class="decision-btn" onclick="showReveal(this)">آه، هضغط</button>
+      <button class="decision-btn" onclick="showReveal(this)">لأ، مش هضغط</button>
+    </div>
+    <div class="reveal-box" id="phish-reveal">
+      المهاجم مش محتاج يكسر Firewall ولا يعمل Exploit. هو بس حاول يخليك <b style="color:var(--text)">إنت</b> تفتح الباب.
+      ده اسمه <b style="color:var(--amber)">Social Engineering</b>، وأشهر أشكاله <b style="color:var(--amber)">Phishing</b>.
+      أحيانًا أسهل طريقة لاختراق نظام قوي هي إقناع شخص عنده صلاحية إنه يدخّلك بنفسه.
+    </div>
+  </section>
+
+  <!-- 05 hacker types -->
+  <section class="slide" data-title="مين الـ Hacker؟">
+    <div class="eyebrow">هل كل Hacker مجرم؟</div>
+    <h2 class="display" style="font-size:clamp(1.7rem,3.4vw,2.5rem);">لأ.</h2>
+    <div class="card-grid">
+      <div class="card"><div class="dot" style="background:var(--teal);"></div><h4>White Hat</h4><p>هاكر أخلاقي، بيختبر الأنظمة ويكتشف الثغرات بإذن صاحب النظام.</p></div>
+      <div class="card"><div class="dot" style="background:var(--red);"></div><h4>Black Hat</h4><p>بيستغل الثغرات لهدف غير قانوني أو لإحداث ضرر.</p></div>
+      <div class="card"><div class="dot" style="background:var(--amber);"></div><h4>Gray Hat</h4><p>في المنطقة الوسط، بيكتشف أو يستغل ثغرات من غير تصريح واضح.</p></div>
+    </div>
+    <p class="sub" style="margin-top:2.4rem;">الهاكر الحقيقي مش شخص بيكتب أوامر على شاشة سودا زي الأفلام.</p>
+    <div class="chip-grid">
+      <div class="chip">Networking</div><div class="chip">Operating Systems</div><div class="chip">Programming</div>
+      <div class="chip">Web</div><div class="chip">Cryptography</div><div class="chip">Problem Solving</div>
+      <div class="chip">Human Behavior</div>
+    </div>
+  </section>
+
+  <!-- 06 escalation -->
+  <section class="slide" data-title="لو حصل اختراق">
+    <div class="eyebrow">شركة عندها موقع أونلاين</div>
+    <h2 class="display" style="font-size:clamp(1.6rem,3.2vw,2.3rem);">إيه اللي ممكن يحصل؟</h2>
+    <div class="escalation">
+      <div class="esc-row"><span class="esc-num">1</span><span class="esc-label">سرقة بيانات</span><div class="esc-bar"><div class="esc-fill" style="--w:35%; background:var(--amber);"></div></div></div>
+      <div class="esc-row"><span class="esc-num">2</span><span class="esc-label">تعديل البيانات</span><div class="esc-bar"><div class="esc-fill" style="--w:50%; background:var(--amber);"></div></div></div>
+      <div class="esc-row"><span class="esc-num">3</span><span class="esc-label">حذف البيانات</span><div class="esc-bar"><div class="esc-fill" style="--w:68%; background:#e0784a;"></div></div></div>
+      <div class="esc-row"><span class="esc-num">4</span><span class="esc-label">تشفير وطلب فدية</span><div class="esc-bar"><div class="esc-fill" style="--w:85%; background:var(--red);"></div></div></div>
+      <div class="esc-row"><span class="esc-num">5</span><span class="esc-label">إيقاف الخدمة بالكامل</span><div class="esc-bar"><div class="esc-fill" style="--w:100%; background:var(--red);"></div></div></div>
+    </div>
+    <p class="sub" style="margin-top:2.4rem;">لو الموقع اتوقف يوم واحد بس... مين هيدفع الثمن؟ العميل، الشركة، الموظفين، وسمعة الشركة كلهم.</p>
+  </section>
+
+  <!-- 07 CIA triad -->
+  <section class="slide" data-title="CIA Triad">
+    <div class="eyebrow">أول مفهوم Security حقيقي</div>
+    <h2 class="display" style="font-size:clamp(1.7rem,3.4vw,2.5rem);">أي نظام آمن قايم على 3 حاجات</h2>
+    <div class="cia-wrap">
+      <svg class="cia-svg" width="260" height="230" viewBox="0 0 260 230">
+        <line x1="130" y1="30" x2="35" y2="190" stroke="var(--border)" stroke-width="2"/>
+        <line x1="130" y1="30" x2="225" y2="190" stroke="var(--border)" stroke-width="2"/>
+        <line x1="35" y1="190" x2="225" y2="190" stroke="var(--border)" stroke-width="2"/>
+        <circle cx="130" cy="30" r="14" fill="var(--surface)" stroke="var(--amber)" stroke-width="2" style="color:var(--amber)" class="cia-dot active" data-t="c" onclick="ciaSelect('c')"></circle>
+        <text x="130" y="12" text-anchor="middle">السرية</text>
+        <circle cx="35" cy="190" r="14" fill="var(--surface)" stroke="var(--teal)" stroke-width="2" style="color:var(--teal)" class="cia-dot" data-t="i" onclick="ciaSelect('i')"></circle>
+        <text x="35" y="215" text-anchor="middle">السلامة</text>
+        <circle cx="225" cy="190" r="14" fill="var(--surface)" stroke="var(--red)" stroke-width="2" style="color:var(--red)" class="cia-dot" data-t="a" onclick="ciaSelect('a')"></circle>
+        <text x="225" y="215" text-anchor="middle">التوافر</text>
+      </svg>
+      <div class="cia-panels">
+        <div class="cia-panel show" data-p="c"><b>Confidentiality — السرية</b>المعلومة يشوفها الشخص المسموح له فقط. مثال: راتب الموظف.</div>
+        <div class="cia-panel" data-p="i"><b>Integrity — سلامة البيانات</b>المعلومة ما تتغيرش من غير تصريح. رصيدك 10,000 جنيه لازم يفضل 10,000، مش يتحول 100 ولا 100,000.</div>
+        <div class="cia-panel" data-p="a"><b>Availability — التوافر</b>الخدمة تفضل شغالة وقت ما تحتاجها. لو تطبيق البنك واقع 10 ساعات، بياناتك ممكن تكون آمنة، بس الخدمة مش متاحة.</div>
+      </div>
+    </div>
+    <p class="sub" style="margin-top:2rem;">في بنك... إيه أهم؟ السرية ولا السلامة ولا التوافر؟ <b style="color:var(--text)">كل واحدة من غير التانية بتكسر النظام.</b></p>
+  </section>
+
+  <!-- 08 phone identity -->
+  <section class="slide" data-title="موبايلك">
+    <div class="eyebrow">لو وقع في إيد غريب</div>
+    <h2 class="display" style="font-size:clamp(1.7rem,3.4vw,2.5rem);">موبايلك مش جهاز.<br><span class="accent-teal">ده مخزن هويتك الرقمية.</span></h2>
+    <div class="chip-grid">
+      <div class="chip">صور</div><div class="chip">WhatsApp</div><div class="chip">Email</div>
+      <div class="chip">Contacts</div><div class="chip">Location</div><div class="chip">تطبيقات بنكية</div>
+      <div class="chip">Password Managers</div><div class="chip">Tokens</div>
+    </div>
+  </section>
+
+  <!-- 09 money -->
+  <section class="slide" data-title="الفلوس">
+    <div class="eyebrow">ليه الشركات بتصرف ملايين</div>
+    <h2 class="display" style="font-size:clamp(1.6rem,3.2vw,2.4rem);">تكلفة الحماية <span class="accent-teal">أقل بكتير</span> من تكلفة الاختراق</h2>
+    <div class="company-box" style="margin-top:3rem;">
+      <div class="stat"><b>100K</b><span>جنيه حماية</span></div>
+      <div class="stat" style="color:var(--red);"><b style="color:var(--red)">10M</b><span>جنيه خسارة اختراق محتملة</span></div>
+    </div>
+    <p class="sub" style="margin-top:2rem;">مش لأن الشركات بتحب الـ Security. لأنها بتوفر ملايين.</p>
+  </section>
+
+  <!-- 10 who needs it -->
+  <section class="slide" data-title="مين محتاجه؟">
+    <div class="eyebrow">كل حد عنده حاجة يحميها</div>
+    <h2 class="display" style="font-size:clamp(1.6rem,3.2vw,2.4rem);">Google؟ البنوك؟ الحكومة؟<br>المستشفيات؟ شركة صغيرة؟ إنت؟</h2>
+    <p class="sub" style="margin-top:1.6rem; font-family:'El Messiri'; font-size:1.3rem; color:var(--amber);">أكيد. كلهم.</p>
+    <p class="sub">أي شخص عنده بيانات أو جهاز متصل بالإنترنت، عنده حاجة تستاهل الحماية.</p>
+  </section>
+
+  <!-- 11 career map -->
+  <section class="slide" data-title="مجالات العمل">
+    <div class="eyebrow">مش لازم تبقى Hacker</div>
+    <h2 class="display" style="font-size:clamp(1.7rem,3.4vw,2.5rem);">Cyber Security مش طريق واحد</h2>
+    <div class="card-grid" style="grid-template-columns:repeat(3, minmax(170px,220px)); margin-top:2.2rem;">
+      <div class="card"><div class="dot" style="background:#4f8ff7;"></div><h4>Network Security</h4><p>حماية الشبكات</p></div>
+      <div class="card"><div class="dot" style="background:var(--red);"></div><h4>Offensive Security</h4><p>اختبار الأنظمة واكتشاف الثغرات</p></div>
+      <div class="card"><div class="dot" style="background:var(--teal);"></div><h4>Defensive Security</h4><p>الدفاع ومراقبة الهجمات</p></div>
+      <div class="card"><div class="dot" style="background:#b07cf0;"></div><h4>SOC</h4><p>مراقبة وتحليل الأحداث الأمنية</p></div>
+      <div class="card"><div class="dot" style="background:var(--amber);"></div><h4>Digital Forensics</h4><p>تحليل الأدلة الرقمية بعد الحوادث</p></div>
+      <div class="card"><div class="dot" style="background:#f0d44f;"></div><h4>Incident Response</h4><p>التعامل مع الحوادث الأمنية</p></div>
+      <div class="card"><div class="dot" style="background:#c4c4c4;"></div><h4>Malware Analysis</h4><p>تحليل البرمجيات الخبيثة</p></div>
+      <div class="card"><div class="dot" style="background:#a5673f;"></div><h4>Cloud Security</h4><p>حماية البنية السحابية</p></div>
+      <div class="card"><div class="dot" style="background:#e0784a;"></div><h4>Application Security</h4><p>تأمين التطبيقات والمواقع</p></div>
+    </div>
+  </section>
+
+  <!-- 12 mindset -->
+  <section class="slide" data-title="Security Mindset">
+    <div class="eyebrow">أهم رسالة في المحاضرة</div>
+    <h2 class="display" style="font-size:clamp(1.6rem,3.2vw,2.3rem);">مش سؤال "بتعمل إيه"</h2>
+    <div class="mindset-compare">
+      <div class="mindset-col"><span class="tag">Beginner</span><p>"الأداة دي بتعمل إيه؟"<br><br>"إزاي أشغل البرنامج؟"</p></div>
+      <div class="mindset-col pro"><span class="tag">Security Mindset</span><p>"إزاي النظام ده ممكن يفشل؟"<br><br>"إيه اللي ممكن يحصل لو حد استخدمه بطريقة غير متوقعة؟"</p></div>
+    </div>
+  </section>
+
+  <!-- 13 challenge -->
+  <section class="slide" data-title="التحدي">
+    <div class="eyebrow">أنت مسؤول الـ Security دلوقتي</div>
+    <h2 class="display" style="font-size:clamp(1.5rem,3vw,2.2rem);">شركة صغيرة: Website + Database<br>20 موظف + Wi-Fi + Email</h2>
+    <p class="sub">إزاي تحميها؟ دوس على اللي إنت شايفه مهم.</p>
+    <div class="checklist" id="checklist">
+      <div class="check-item" onclick="toggleCheck(this)"><span class="box"></span>Password Policy</div>
+      <div class="check-item" onclick="toggleCheck(this)"><span class="box"></span>MFA</div>
+      <div class="check-item" onclick="toggleCheck(this)"><span class="box"></span>Backups</div>
+      <div class="check-item" onclick="toggleCheck(this)"><span class="box"></span>Firewall</div>
+      <div class="check-item" onclick="toggleCheck(this)"><span class="box"></span>Antivirus / EDR</div>
+      <div class="check-item" onclick="toggleCheck(this)"><span class="box"></span>Updates</div>
+      <div class="check-item" onclick="toggleCheck(this)"><span class="box"></span>Employee Training</div>
+      <div class="check-item" onclick="toggleCheck(this)"><span class="box"></span>Access Control</div>
+      <div class="check-item" onclick="toggleCheck(this)"><span class="box"></span>Monitoring</div>
+    </div>
+    <div class="check-counter">اخترت <b id="checkCount">0</b> / 9 — مفيش إجابة واحدة صح، المهم منطقك.</div>
+  </section>
+
+  <!-- 14 agenda -->
+  <section class="slide" data-title="خريطة المحاضرة">
+    <div class="eyebrow">90 دقيقة</div>
+    <h2 class="display" style="font-size:clamp(1.5rem,3vw,2.1rem);">توزيع الوقت المقترح</h2>
+    <table class="agenda">
+      <tr><td>٠–١٠</td><td>سؤال صادم + قصة</td></tr>
+      <tr><td>١٠–٢٠</td><td>Cyber Security في حياتنا</td></tr>
+      <tr><td>٢٠–٣٠</td><td>سيناريو Phishing / Social Engineering</td></tr>
+      <tr><td>٣٠–٤٠</td><td>Hacker vs Cyber Criminal</td></tr>
+      <tr><td>٤٠–٥٠</td><td>أنواع الهجمات</td></tr>
+      <tr><td>٥٠–٦٠</td><td>CIA Triad</td></tr>
+      <tr><td>٦٠–٧٠</td><td>أمثلة واقعية</td></tr>
+      <tr><td>٧٠–٨٠</td><td>مجالات Cyber Security</td></tr>
+      <tr><td>٨٠–٨٧</td><td>Challenge للطلاب</td></tr>
+      <tr><td>٨٧–٩٠</td><td>الخلاصة + تشويق للمحاضرة القادمة</td></tr>
+    </table>
+  </section>
+
+  <!-- 15 closing -->
+  <section class="slide" data-title="الخلاصة">
+    <div class="eyebrow">آخر حاجة تفتكرها</div>
+    <p class="footer-quote">"Cyber Security مش معناها إنك تمنع كل الهجمات للأبد.<br><br>معناها إنك تقلل المخاطر، تكتشف الهجوم، تمنع انتشاره، وتتعافى منه بأقل خسائر ممكنة."</p>
+  </section>
+
+  <!-- 16 teaser -->
+  <section class="slide" data-title="المحاضرة الجاية">
+    <div class="eyebrow">Session 02</div>
+    <h2 class="display" style="font-size:clamp(1.6rem,3.2vw,2.4rem);">المحاضرة الجاية مش هنتعلم فيها<br>إزاي نهاجم نظام.</h2>
+    <p class="sub" style="font-size:clamp(1.05rem,1.8vw,1.35rem); color:var(--teal);">هنتعلم الأول إزاي نفكر زي الشخص اللي بيحاول يهاجم النظام.</p>
+  </section>
+
+</main>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const rail = document.getElementById('rail');
+  const counter = document.getElementById('counter');
+  const deck = document.getElementById('deck');
+  const arabicNum = n => n.toLocaleString('ar-EG', {minimumIntegerDigits:2});
+
+  slides.forEach((s,i)=>{
+    if(i>0){
+      const link = document.createElement('div');
+      link.className='rail-link';
+      link.dataset.idx=i;
+      rail.appendChild(link);
+    }
+    const btn = document.createElement('button');
+    btn.className='rail-node';
+    btn.dataset.idx=i;
+    btn.setAttribute('aria-label', s.dataset.title || ('slide '+i));
+    btn.onclick = ()=> s.scrollIntoView({behavior:'smooth'});
+    rail.appendChild(btn);
+  });
+
+  const nodes = rail.querySelectorAll('.rail-node');
+  const links = rail.querySelectorAll('.rail-link');
+
+  const io = new IntersectionObserver((entries)=>{
+    entries.forEach(e=>{
+      const idx = Array.from(slides).indexOf(e.target);
+      if(e.isIntersecting && e.intersectionRatio > 0.55){
+        e.target.classList.add('in-view');
+        counter.innerHTML = `<b>${arabicNum(idx+1)}</b> / ${slides.length}`;
+        nodes.forEach((n,i)=>{
+          n.classList.toggle('active', i===idx);
+          n.classList.toggle('done', i<idx);
+        });
+        links.forEach(l=> l.classList.toggle('done', parseInt(l.dataset.idx) <= idx));
+      }
+    });
+  }, {root:deck, threshold:[0,0.55,1]});
+
+  slides.forEach(s=>io.observe(s));
+
+  function showReveal(btn){
+    document.getElementById('phish-reveal').classList.add('show');
+  }
+
+  function ciaSelect(t){
+    document.querySelectorAll('.cia-dot').forEach(c=>c.classList.toggle('active', c.dataset.t===t));
+    document.querySelectorAll('.cia-panel').forEach(p=>p.classList.toggle('show', p.dataset.p===t));
+  }
+
+  function toggleCheck(el){
+    el.classList.toggle('on');
+    const box = el.querySelector('.box');
+    box.textContent = el.classList.contains('on') ? '✓' : '';
+    const total = document.querySelectorAll('.check-item.on').length;
+    document.getElementById('checkCount').textContent = total;
+  }
+</script>
+
+</body>
+</html>
